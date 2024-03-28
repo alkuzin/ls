@@ -64,18 +64,29 @@ void ls_readdir(ls_t *ls)
 
 void ls_printdir(ls_t *ls)
 {
-    char *filename;
-    size_t total_filenames_len;
+    char   *filename, *filename1, *filename2;
+    size_t total_filenames_len, group_size;
+    size_t first_group_max_len, len;
 
+
+    group_size          = (ls->size / 2) + 1;
     total_filenames_len = 0;
-    
+    first_group_max_len = 0;
+    len                 = 0;
+
     for (size_t i = 0; i < ls->size; i++) {
+
         filename = ls->filenames[i];
-        total_filenames_len += strlen(filename);
+        len      = strlen(filename);
+        total_filenames_len += len;
+
+        if (i < group_size) {
+            if (first_group_max_len < len)
+                first_group_max_len = len;
+        }
     }
 
-    if (total_filenames_len + (2 * ls->size) <= 96)
-    {
+    if (total_filenames_len + (2 * ls->size) <= 96) {
         for (size_t i = 0; i < ls->size; i++) {
 
             filename = ls->filenames[i];
@@ -88,7 +99,6 @@ void ls_printdir(ls_t *ls)
 
         putchar('\n');
     }
-
     else if ((total_filenames_len / 5) + (2 * ls->size) <= 96) {
         for (size_t i = 0; i < ls->size; i++) {
 
@@ -106,14 +116,21 @@ void ls_printdir(ls_t *ls)
         putchar('\n');
     }
     else {
-        for (size_t i = 0; i < ls->size; i++) {
+        for (size_t i = 0; i < group_size; i++) {
 
-            filename = ls->filenames[i];
+            filename1 = ls->filenames[i];
+            filename2 = ls->filenames[i + group_size];
+            len       = strlen(filename1);
         
-            if (strchr(filename, ' '))
-                printf("\'%s\'\n", filename);
+            if (strchr(filename1, ' '))
+                printf("\'%-*s\'  ", (int) first_group_max_len, filename1);
             else
-                printf("%s\n", filename);
+                printf("%-*s  ", (int) first_group_max_len, filename1);
+
+            if (strchr(filename2, ' '))
+                printf("\'%s\'\n", filename2);
+            else
+                printf("%s\n", filename2);
         }
     }
 }
