@@ -54,48 +54,20 @@ void ls_get_mode(char *buffer, mode_t mode)
 
 void ls_printdir_long_list_fmt(ls_t *ls)
 {
-    char   *filename, *user, *group;
-    char mode_buffer[12];
-    char date_buffer[16];
-    size_t size, nbtime;
-    struct tm *mdate;
-    time_t mtime;
-    int    status;
-    stat_t sb;
-
+    ls_file_t *file;
 
     for (size_t i = 0; i < ls->size; i++) {
-        filename = ls->filenames[i];
-        status   = lstat(filename, &sb);
+        
+        file = &ls->files[i];
 
-        if (status == -1) {
-            perror("stat error");
-            exit(EXIT_FAILURE);
-        }
-
-        bzero(mode_buffer, sizeof(mode_buffer));
-        bzero(date_buffer, sizeof(date_buffer));
-        ls_get_mode(mode_buffer, sb.st_mode);
-        user   = getpwuid(sb.st_uid)->pw_name;
-        group  = getgrgid(sb.st_gid)->gr_name;
-        size   = sb.st_size;
-        mtime  = sb.st_mtime;
-        mdate  = localtime(&mtime);
-        nbtime = strftime(date_buffer, sizeof(date_buffer), "%b %e %R", mdate);
-
-        if (!nbtime) {
-            perror("ls: strftime");
-            exit(EXIT_FAILURE);
-        }
-
-        printf("%s %lu %s %s %5lu %s %s\n", mode_buffer, sb.st_nlink, user, 
-        group, size, date_buffer, filename);
+        printf("%s %lu %s %s %5lu %s %s\n", file->mode, file->nlink, file->user, 
+        file->group, file->size, file->date, file->filename);
     }
 }
 
 void ls_init(ls_t *ls)
 {
-    bzero(ls->filenames, sizeof(ls->filenames));
+    bzero(ls, sizeof(ls_t));
     ls->dir  = NULL;
     ls->dp   = NULL;
     ls->size = 0;
@@ -113,10 +85,15 @@ void ls_opendir(ls_t *ls, const char *path)
 
 void ls_readdir(ls_t *ls)
 {
-    char *filename;
-    int  files;
+    char   *filename, *user, *group;
+    size_t size, nbtime;
+    struct tm *mdate;
+    int    status, i;
+    ls_file_t *file;
+    time_t mtime;
+    stat_t sb;
 
-    files = 0;
+    i = 0;
 
     for (;;) {
         ls->dp = readdir(ls->dir);
@@ -135,12 +112,38 @@ void ls_readdir(ls_t *ls)
             ls->size--;
             continue;
         }
+
+        status = lstat(filename, &sb);
+
+        if (status == -1) {
+            perror("stat error");
+            exit(EXIT_FAILURE);
+        }
+
+        file  = &ls->files[i];
+        user  = getpwuid(sb.st_uid)->pw_name;
+        group = getgrgid(sb.st_gid)->gr_name;
+        size  = sb.st_size;
+        mtime = sb.st_mtime;
+        mdate = localtime(&mtime);
         
-        strncpy(ls->filenames[files], ls->dp->d_name, strlen(ls->dp->d_name));
-        files++;
+        strncpy(file->filename, filename, strlen(filename));
+        strncpy(file->group, group, strlen(group));
+        strncpy(file->user, user, strlen(user));
+        ls_get_mode(file->mode, sb.st_mode);
+        file->nlink = sb.st_nlink;
+        file->size  = size;
+        nbtime      = strftime(file->date, sizeof(file->date), "%b %e %R", mdate);
+
+        if (!nbtime) {
+            perror("ls: strftime");
+            exit(EXIT_FAILURE);
+        }
+
+        i++;
     }
 
-    ls->size = files;
+    ls->size = i;
 }
 
 void ls_printdir(ls_t *ls)
@@ -149,6 +152,7 @@ void ls_printdir(ls_t *ls)
     size_t total_filenames_len, group_size;
     size_t first_group_max_len, len;
 
+    ls_file_t *file;
 
     group_size          = (ls->size / 2) + 1;
     total_filenames_len = 0;
@@ -157,7 +161,8 @@ void ls_printdir(ls_t *ls)
 
     for (size_t i = 0; i < ls->size; i++) {
 
-        filename = ls->filenames[i];
+        file     = &ls->files[i];
+        filename = file->filename;
         len      = strlen(filename);
         total_filenames_len += len;
 
@@ -170,7 +175,8 @@ void ls_printdir(ls_t *ls)
     if (total_filenames_len + (2 * ls->size) <= 96) {
         for (size_t i = 0; i < ls->size; i++) {
 
-            filename = ls->filenames[i];
+            file     = &ls->files[i];
+            filename = file->filename;
         
             if (strchr(filename, ' '))
                 printf("\'%s\'", filename);
@@ -183,7 +189,8 @@ void ls_printdir(ls_t *ls)
     else if ((total_filenames_len / 5) + (2 * ls->size) <= 96) {
         for (size_t i = 0; i < ls->size; i++) {
 
-            filename = ls->filenames[i];
+            file     = &ls->files[i];
+            filename = file->filename;
         
             if (strchr(filename, ' '))
                 printf("\'%s\'  ", filename);
@@ -199,8 +206,8 @@ void ls_printdir(ls_t *ls)
     else {
         for (size_t i = 0; i < group_size; i++) {
 
-            filename1 = ls->filenames[i];
-            filename2 = ls->filenames[i + group_size];
+            filename1 = ls->files[i].filename;
+            filename2 = ls->files[i + group_size].filename;
             len       = strlen(filename1);
         
             if (strchr(filename1, ' '))
