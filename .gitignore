@@ -1,5 +1,6 @@
 *.o
 *.a
+*.swp
 ./ls
 vscode/
 obj/
