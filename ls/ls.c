@@ -3,14 +3,95 @@ UNIX projects
 @alkuzin - 2024
 */
 
-#include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <errno.h>
-#include <sys/stat.h>
+#include <time.h>
+#include <pwd.h>
+#include <grp.h>
 #include "ls.h"
 
+
+char ls_get_type(mode_t mode)
+{
+    switch (S_IFMT & mode) {
+        case S_IFREG:
+            return '-';
+        case S_IFDIR:
+            return 'd';
+        case S_IFCHR:
+            return 'c';
+        case S_IFBLK:
+            return 'b';
+        case S_IFIFO:
+            return 'p';
+        case S_IFSOCK:
+            return 's';
+        case S_IFLNK:
+            return 'l';
+        default:
+            return '?';
+    }
+}
+
+void ls_get_mode(char *buffer, mode_t mode)
+{
+    buffer[0] = ls_get_type(mode);
+    buffer[1] = (S_IRUSR & mode) ? 'r' : '-';
+    buffer[2] = (S_IWUSR & mode) ? 'w' : '-';
+    buffer[3] = (S_IXUSR & mode) ? 'x' : '-';
+    buffer[4] = (S_IRGRP & mode) ? 'r' : '-';
+    buffer[5] = (S_IWGRP & mode) ? 'w' : '-';
+    buffer[6] = (S_IXGRP & mode) ? 'x' : '-';
+    buffer[7] = (S_IROTH & mode) ? 'r' : '-';
+    buffer[8] = (S_IWOTH & mode) ? 'w' : '-';
+    buffer[9] = (S_IXOTH & mode) ? 'x' : '-';
+}
+
+void ls_printdir_long_list_fmt(ls_t *ls)
+{
+    char   *filename, *user, *group;
+    char mode_buffer[12];
+    char date_buffer[16];
+    size_t size, nbtime;
+    struct tm *mdate;
+    time_t mtime;
+    int    status;
+    stat_t sb;
+
+
+    for (size_t i = 0; i < ls->size; i++) {
+        filename = ls->filenames[i];
+        status   = lstat(filename, &sb);
+
+        if (status == -1) {
+            perror("stat error");
+            exit(EXIT_FAILURE);
+        }
+
+        bzero(mode_buffer, sizeof(mode_buffer));
+        bzero(date_buffer, sizeof(date_buffer));
+        ls_get_mode(mode_buffer, sb.st_mode);
+        user   = getpwuid(sb.st_uid)->pw_name;
+        group  = getgrgid(sb.st_gid)->gr_name;
+        size   = sb.st_size;
+        mtime  = sb.st_mtime;
+        mdate  = localtime(&mtime);
+        nbtime = strftime(date_buffer, sizeof(date_buffer), "%b %e %R", mdate);
+
+        if (!nbtime) {
+            perror("ls: strftime");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("%s %lu %s %s %5lu %s %s\n", mode_buffer, sb.st_nlink, user, 
+        group, size, date_buffer, filename);
+    }
+}
 
 void ls_init(ls_t *ls)
 {
