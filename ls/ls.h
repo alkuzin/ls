@@ -19,6 +19,7 @@ typedef struct ls_file_s {
     char   date[16];
     size_t nlink;
     size_t size;
+    time_t mtime;
 } ls_file_t;
 
 typedef struct ls_s {
@@ -33,10 +34,9 @@ typedef struct ls_s {
 typedef struct stat stat_t;
 
 #define LS_FLAG_LONG_LIST 0x01
-#define LS_FLAG_RECURCIVE 0x02
-#define LS_FLAG_ALL       0x04
-#define LS_FLAG_REVERSE   0x08
-#define LS_FLAG_TIME      0x10
+#define LS_FLAG_ALL       0x02
+#define LS_FLAG_REVERSE   0x04
+#define LS_FLAG_TIME      0x08
 
 void ls_init(ls_t *ls);
 void ls_opendir(ls_t *ls, const char *path);
@@ -44,6 +44,7 @@ void ls_readdir(ls_t *ls);
 void ls_printdir_long_list_fmt(ls_t *ls);
 void ls_printdir(ls_t *ls);
 void ls_closedir(ls_t *ls);
+void ls_help(void);
 
 
 #endif /* _UNIX_PROJECT_LS_H_ */

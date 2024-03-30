@@ -10,11 +10,80 @@ UNIX projects
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
 #include "ls.h"
 
+
+void ls_help(void)
+{
+    puts("Help ...");
+    exit(EXIT_SUCCESS);
+}
+
+int cmplsfiles(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+    char filename1[256];
+    char filename2[256];
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    strncpy(filename1, file1->filename, 256);
+    strncpy(filename2, file2->filename, 256);
+
+    for (int i = 0; filename1[i]; i++)
+        filename1[i] = tolower(filename1[i]);
+
+    for (int i = 0; filename2[i]; i++)
+        filename2[i] = tolower(filename2[i]);
+    
+    return strncmp(filename1, filename2, 256);
+}
+
+int cmplsfiles_r(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+    char filename1[256];
+    char filename2[256];
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    strncpy(filename1, file1->filename, 256);
+    strncpy(filename2, file2->filename, 256);
+
+    for (int i = 0; filename1[i]; i++)
+        filename1[i] = tolower(filename1[i]);
+
+    for (int i = 0; filename2[i]; i++)
+        filename2[i] = tolower(filename2[i]);
+    
+    return strncmp(filename2, filename1, 256);
+}
+
+int cmplsfiles_rt(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    return ((file1->mtime > file2->mtime) - (file1->mtime < file2->mtime));
+}
+
+int cmplsfiles_t(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    return ((file2->mtime > file1->mtime) - (file2->mtime < file1->mtime));
+}
 
 char ls_get_type(mode_t mode)
 {
@@ -56,14 +125,12 @@ static size_t ls_utoa_len(unsigned int n)
 {
     size_t len;
 
-
     len = 0;
 
     if (n == 0)
         return 1;
 
-    while (n >= 1)
-    {
+    while (n >= 1) {
         len++;
         n /= 10;
     }
@@ -74,14 +141,12 @@ static size_t ls_utoa_len(unsigned int n)
 int ls_get_max_size_len(ls_t *ls)
 {
     int    max_size_len;
-    ls_file_t *file;
     size_t size;
 
     max_size_len = 0;
 
     for (size_t i = 0; i < ls->size; i++) {
-        file = &ls->files[i];
-        size = ls_utoa_len(file->size);
+        size = ls_utoa_len(ls->files[i].size);
     
         if ((size_t) max_size_len < size)
             max_size_len = size;
@@ -90,19 +155,34 @@ int ls_get_max_size_len(ls_t *ls)
     return max_size_len;
 }
 
-void ls_printdir_long_list_fmt(ls_t *ls)
+int ls_get_max_nlink_len(ls_t *ls)
 {
-    ls_file_t *file;
+    int    max_nlink_len;
+    size_t size;
 
-    int max_size_len;
-
-    max_size_len = ls_get_max_size_len(ls);
+    max_nlink_len = 0;
 
     for (size_t i = 0; i < ls->size; i++) {
-        
-        file = &ls->files[i];
+        size = ls_utoa_len(ls->files[i].nlink);
+    
+        if ((size_t) max_nlink_len < size)
+            max_nlink_len = size;
+    }
 
-        printf("%s %2lu %s %s %*lu %-5s  %s\n", file->mode, file->nlink, file->user, 
+    return max_nlink_len;
+}
+
+void ls_printdir_long_list_fmt(ls_t *ls)
+{
+    int       max_size_len, max_nlink_len;
+    ls_file_t *file;
+
+    max_size_len  = ls_get_max_size_len(ls);
+    max_nlink_len = ls_get_max_nlink_len(ls);
+
+    for (size_t i = 0; i < ls->size; i++) {
+        file = &ls->files[i];
+        printf("%s %*lu %s %s %*lu %-5s %s\n", file->mode, max_nlink_len, file->nlink, file->user, 
         file->group, max_size_len, file->size, file->date, file->filename);
     }
 }
@@ -119,7 +199,6 @@ void ls_init(ls_t *ls)
 void ls_opendir(ls_t *ls, const char *path)
 {
     ls->dir = opendir(path);
-
     strncpy(ls->dirname, path, 256);
 
     if (!ls->dir) {
@@ -131,6 +210,7 @@ void ls_opendir(ls_t *ls, const char *path)
 void ls_readdir(ls_t *ls)
 {
     char   *user, *group;
+    char   filename[512];
     size_t size, nbtime;
     struct tm *mdate;
     int    status, i;
@@ -139,8 +219,6 @@ void ls_readdir(ls_t *ls)
     stat_t sb;
 
     i = 0;
-
-    char filename[512];
 
     for (;;) {
         ls->dp = readdir(ls->dir);
@@ -157,9 +235,11 @@ void ls_readdir(ls_t *ls)
         strncpy(filename, ls->dirname, 256);
         strncat(filename, ls->dp->d_name, 256);
 
-        if (strncmp(ls->dp->d_name, ".", 1) == 0 || strncmp(ls->dp->d_name, "..", 2) == 0) {
-            ls->size--;
-            continue;
+        if (!(LS_FLAG_ALL & ls->flags)) {
+            if (strncmp(ls->dp->d_name, ".", 1) == 0 || strncmp(ls->dp->d_name, "..", 2) == 0) {
+                ls->size--;
+                continue;
+            }
         }
 
         status = lstat(filename, &sb);
@@ -181,8 +261,10 @@ void ls_readdir(ls_t *ls)
         strncpy(file->group, group, strlen(group));
         strncpy(file->user, user, strlen(user));
         ls_get_mode(file->mode, sb.st_mode);
+
         file->nlink = sb.st_nlink;
         file->size  = size;
+        file->mtime = mtime;
         nbtime      = strftime(file->date, sizeof(file->date), "%b %e %R", mdate);
 
         if (!nbtime) {
@@ -194,83 +276,41 @@ void ls_readdir(ls_t *ls)
     }
 
     ls->size = i;
+
+    if (LS_FLAG_TIME & ls->flags) {
+        if (LS_FLAG_REVERSE & ls->flags)
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_rt);
+        else
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_t);
+    }
+    else {
+        if (LS_FLAG_REVERSE & ls->flags)
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_r);
+        else
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles);
+    }
+}
+
+void ls_printdir_default(ls_t *ls)
+{
+    char *filename;
+
+    for (size_t i = 0; i < ls->size; i++) {
+        filename = ls->files[i].filename;
+
+        if (strchr(filename, ' '))
+            printf("\'%s\'\n", filename);
+        else
+            printf("%s\n", filename);
+    }
 }
 
 void ls_printdir(ls_t *ls)
 {
-    char   *filename, *filename1, *filename2;
-    size_t total_filenames_len, group_size;
-    size_t first_group_max_len, len;
-
-    ls_file_t *file;
-
-    group_size          = (ls->size / 2) + 1;
-    total_filenames_len = 0;
-    first_group_max_len = 0;
-    len                 = 0;
-
-    for (size_t i = 0; i < ls->size; i++) {
-
-        file     = &ls->files[i];
-        filename = file->filename;
-        len      = strlen(filename);
-        total_filenames_len += len;
-
-        if (i < group_size) {
-            if (first_group_max_len < len)
-                first_group_max_len = len;
-        }
-    }
-
-    if (total_filenames_len + (2 * ls->size) <= 96) {
-        for (size_t i = 0; i < ls->size; i++) {
-
-            file     = &ls->files[i];
-            filename = file->filename;
-        
-            if (strchr(filename, ' '))
-                printf("\'%s\'", filename);
-            else
-                printf("%s  ", filename);
-        }
-
-        putchar('\n');
-    }
-    else if ((total_filenames_len / 5) + (2 * ls->size) <= 96) {
-        for (size_t i = 0; i < ls->size; i++) {
-
-            file     = &ls->files[i];
-            filename = file->filename;
-        
-            if (strchr(filename, ' '))
-                printf("\'%s\'  ", filename);
-            else
-                printf("%s  ", filename);
-
-            if (i && (i + 1) % 5 == 0)
-                putchar('\n');
-        }
-
-        putchar('\n');
-    }
-    else {
-        for (size_t i = 0; i < group_size; i++) {
-
-            filename1 = ls->files[i].filename;
-            filename2 = ls->files[i + group_size].filename;
-            len       = strlen(filename1);
-        
-            if (strchr(filename1, ' '))
-                printf("\'%-*s\'  ", (int) first_group_max_len, filename1);
-            else
-                printf("%-*s  ", (int) first_group_max_len, filename1);
-
-            if (strchr(filename2, ' '))
-                printf("\'%s\'\n", filename2);
-            else
-                printf("%s\n", filename2);
-        }
-    }
+    if (LS_FLAG_LONG_LIST & ls->flags)
+        ls_printdir_long_list_fmt(ls);
+    else
+        ls_printdir_default(ls);
 }
 
 void ls_closedir(ls_t *ls)

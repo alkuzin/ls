@@ -9,8 +9,6 @@ UNIX projects
 #include <unistd.h>
 #include "ls.h"
 
-void ls_help(void);
-
 int main(int argc, char **argv)
 {
     char dir[256];
@@ -24,13 +22,10 @@ int main(int argc, char **argv)
     if (argc > 1 && strncmp(argv[1], "--help", 6) == 0)
         ls_help();
 
-    while ((opt = getopt(argc, argv, "lRart")) != -1) {
+    while ((opt = getopt(argc, argv, "lart")) != -1) {
         switch (opt) {
             case 'l':
                 ls.flags |= LS_FLAG_LONG_LIST;
-                break;
-            case 'R':
-                ls.flags |= LS_FLAG_RECURCIVE;
                 break;
             case 'a':
                 ls.flags |= LS_FLAG_ALL;
@@ -61,17 +56,11 @@ int main(int argc, char **argv)
     /* read files from directory */
     ls_readdir(&ls);
 
-    ls_printdir_long_list_fmt(&ls);
+    ls_printdir(&ls);
 
     /* close directory */
     ls_closedir(&ls);
 
     return 0;
 
-}
-
-void ls_help(void)
-{
-    puts("Help ...");
-    exit(EXIT_SUCCESS);
 }
