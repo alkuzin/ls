@@ -9,6 +9,7 @@ UNIX projects
 #include <unistd.h>
 #include "ls.h"
 
+
 int main(int argc, char **argv)
 {
     char dir[256];
@@ -17,12 +18,13 @@ int main(int argc, char **argv)
 
     ls_init(&ls);
     bzero(dir, sizeof(dir));
-    strncpy(dir, "./", 3);
 
+    /* show list of options */
     if (argc > 1 && strncmp(argv[1], "--help", 6) == 0)
         ls_help();
 
-    while ((opt = getopt(argc, argv, "lart")) != -1) {
+    /* set flags */
+    while ((opt = getopt(argc, argv, "lartS")) != -1) {
         switch (opt) {
             case 'l':
                 ls.flags |= LS_FLAG_LONG_LIST;
@@ -36,31 +38,34 @@ int main(int argc, char **argv)
             case 't':
                 ls.flags |= LS_FLAG_TIME;
                 break;
+            case 'S':
+                ls.flags |= LS_FLAG_SIZE;
+                break;
             default:
-                ls_help();
+                puts("Try 'ls --help' for more information.");
+                exit(EXIT_FAILURE);
         }
     }
 
+    /* set directory path */
     if (!ls.flags && argc > 1)
         strncpy(dir, argv[1], 256);
     else if (argc > 1 && argv[argc - 1][0] != '-')
         strncpy(dir, argv[argc - 1], 256);
+    else
+        strncpy(dir, "./", 3);
 
-/*    printf("argc: %d\n", argc);
-    printf("argv[argc - 1]: \"%s\"\n", argv[argc - 1]);
-    printf("dir: \"%s\"\n", dir);
-*/
     /* open directory */
     ls_opendir(&ls, dir);
     
     /* read files from directory */
     ls_readdir(&ls);
 
+    /* print directory content */
     ls_printdir(&ls);
 
     /* close directory */
-    ls_closedir(&ls);
+    ls_destroy(&ls);
 
     return 0;
-
 }

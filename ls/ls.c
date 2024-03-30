@@ -16,14 +16,48 @@ UNIX projects
 #include <grp.h>
 #include "ls.h"
 
+/* file names comparison function for qsort() */
+static int cmplsfiles(const void *p1, const void *p2);
 
-void ls_help(void)
-{
-    puts("Help ...");
-    exit(EXIT_SUCCESS);
-}
+/* reversed file names comparison function for qsort() */
+static int cmplsfiles_r(const void *p1, const void *p2);
 
-int cmplsfiles(const void *p1, const void *p2)
+/* file modifying time comparison function for qsort() */
+static int cmplsfiles_t(const void *p1, const void *p2);
+
+/* reversed file modifying time comparison function for qsort() */
+static int cmplsfiles_rt(const void *p1, const void *p2);
+
+/* file size comparison function for qsort() */
+static int cmplsfiles_s(const void *p1, const void *p2);
+
+/* reversed file size comparison function for qsort() */
+static int cmplsfiles_rs(const void *p1, const void *p2);
+
+/* get file type */
+static char ls_get_type(mode_t mode);
+
+/* get file mode/permissions */
+static void ls_get_mode(char *buffer, mode_t mode);
+
+/* unsinged int to strint lenght */
+static size_t ls_utoa_len(uint32_t n);
+
+/* get the largest file length for output alignment */
+static int ls_get_max_size_len(ls_t *ls);
+
+/* get the length for file with max number 
+   of links for output alignment */
+static int ls_get_max_nlink_len(ls_t *ls);
+
+/* print directory contents in long list format */
+static void ls_printdir_long_list_fmt(ls_t *ls);
+
+/* print directory contents in a row */
+static void ls_printdir_default(ls_t *ls);
+
+
+static int cmplsfiles(const void *p1, const void *p2)
 {
     ls_file_t *file1, *file2;
     char filename1[256];
@@ -44,7 +78,7 @@ int cmplsfiles(const void *p1, const void *p2)
     return strncmp(filename1, filename2, 256);
 }
 
-int cmplsfiles_r(const void *p1, const void *p2)
+static int cmplsfiles_r(const void *p1, const void *p2)
 {
     ls_file_t *file1, *file2;
     char filename1[256];
@@ -65,7 +99,7 @@ int cmplsfiles_r(const void *p1, const void *p2)
     return strncmp(filename2, filename1, 256);
 }
 
-int cmplsfiles_rt(const void *p1, const void *p2)
+static int cmplsfiles_rt(const void *p1, const void *p2)
 {
     ls_file_t *file1, *file2;
 
@@ -75,7 +109,7 @@ int cmplsfiles_rt(const void *p1, const void *p2)
     return ((file1->mtime > file2->mtime) - (file1->mtime < file2->mtime));
 }
 
-int cmplsfiles_t(const void *p1, const void *p2)
+static int cmplsfiles_t(const void *p1, const void *p2)
 {
     ls_file_t *file1, *file2;
 
@@ -85,7 +119,27 @@ int cmplsfiles_t(const void *p1, const void *p2)
     return ((file2->mtime > file1->mtime) - (file2->mtime < file1->mtime));
 }
 
-char ls_get_type(mode_t mode)
+static int cmplsfiles_s(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    return (file2->size - file1->size);
+}
+
+static int cmplsfiles_rs(const void *p1, const void *p2)
+{
+    ls_file_t *file1, *file2;
+
+    file1 = (ls_file_t *)p1;
+    file2 = (ls_file_t *)p2;
+
+    return (file1->size - file2->size);
+}
+
+static char ls_get_type(mode_t mode)
 {
     switch (S_IFMT & mode) {
         case S_IFREG:
@@ -107,7 +161,7 @@ char ls_get_type(mode_t mode)
     }
 }
 
-void ls_get_mode(char *buffer, mode_t mode)
+static void ls_get_mode(char *buffer, mode_t mode)
 {
     buffer[0] = ls_get_type(mode);
     buffer[1] = (S_IRUSR & mode) ? 'r' : '-';
@@ -121,7 +175,7 @@ void ls_get_mode(char *buffer, mode_t mode)
     buffer[9] = (S_IXOTH & mode) ? 'x' : '-';
 }
 
-static size_t ls_utoa_len(unsigned int n)
+static size_t ls_utoa_len(uint32_t n)
 {
     size_t len;
 
@@ -138,7 +192,7 @@ static size_t ls_utoa_len(unsigned int n)
     return len;
 }
 
-int ls_get_max_size_len(ls_t *ls)
+static int ls_get_max_size_len(ls_t *ls)
 {
     int    max_size_len;
     size_t size;
@@ -155,7 +209,7 @@ int ls_get_max_size_len(ls_t *ls)
     return max_size_len;
 }
 
-int ls_get_max_nlink_len(ls_t *ls)
+static int ls_get_max_nlink_len(ls_t *ls)
 {
     int    max_nlink_len;
     size_t size;
@@ -170,21 +224,6 @@ int ls_get_max_nlink_len(ls_t *ls)
     }
 
     return max_nlink_len;
-}
-
-void ls_printdir_long_list_fmt(ls_t *ls)
-{
-    int       max_size_len, max_nlink_len;
-    ls_file_t *file;
-
-    max_size_len  = ls_get_max_size_len(ls);
-    max_nlink_len = ls_get_max_nlink_len(ls);
-
-    for (size_t i = 0; i < ls->size; i++) {
-        file = &ls->files[i];
-        printf("%s %*lu %s %s %*lu %-5s %s\n", file->mode, max_nlink_len, file->nlink, file->user, 
-        file->group, max_size_len, file->size, file->date, file->filename);
-    }
 }
 
 void ls_init(ls_t *ls)
@@ -277,11 +316,18 @@ void ls_readdir(ls_t *ls)
 
     ls->size = i;
 
+
     if (LS_FLAG_TIME & ls->flags) {
         if (LS_FLAG_REVERSE & ls->flags)
             qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_rt);
         else
             qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_t);
+    }
+    else if (LS_FLAG_SIZE & ls->flags) {
+        if (LS_FLAG_REVERSE & ls->flags)
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_rs);
+        else
+            qsort(ls->files, ls->size, sizeof(ls_file_t), cmplsfiles_s);
     }
     else {
         if (LS_FLAG_REVERSE & ls->flags)
@@ -291,7 +337,22 @@ void ls_readdir(ls_t *ls)
     }
 }
 
-void ls_printdir_default(ls_t *ls)
+static void ls_printdir_long_list_fmt(ls_t *ls)
+{
+    int       max_size_len, max_nlink_len;
+    ls_file_t *file;
+
+    max_size_len  = ls_get_max_size_len(ls);
+    max_nlink_len = ls_get_max_nlink_len(ls);
+
+    for (size_t i = 0; i < ls->size; i++) {
+        file = &ls->files[i];
+        printf("%s %*lu %s %s %*lu %-5s %s\n", file->mode, max_nlink_len, file->nlink, file->user, 
+        file->group, max_size_len, file->size, file->date, file->filename);
+    }
+}
+
+static void ls_printdir_default(ls_t *ls)
 {
     char *filename;
 
@@ -313,7 +374,7 @@ void ls_printdir(ls_t *ls)
         ls_printdir_default(ls);
 }
 
-void ls_closedir(ls_t *ls)
+void ls_destroy(ls_t *ls)
 {
     int status;
 
@@ -323,4 +384,22 @@ void ls_closedir(ls_t *ls)
         perror("ls: error to close directory");
         exit(EXIT_FAILURE);
     }
+}
+
+void ls_help(void)
+{
+    puts(
+    "\nUSAGE\n"
+    "\tls [options] <file>\n\n"
+    "DESCRIPTION\n"
+    "\tls - list information about the <file>s (the current directory by default)\n\n"
+    "OPTIONS\n"
+    "\t-l\t\tuse a long listing format\n"
+    "\t-a\t\tdo not ignore entries starting with .\n"
+    "\t-r\t\treverse order while sorting\n\n"
+    "\t-t\t\tsort by time, newest first\n"
+    "\t-S\t\tsort by file size, largest first\n"
+    "\t--help\t\tdisplay this help and exit\n"
+    );
+    exit(EXIT_SUCCESS);
 }

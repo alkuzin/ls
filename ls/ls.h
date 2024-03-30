@@ -11,6 +11,9 @@ UNIX projects
 #include <stdint.h>
 
 
+typedef struct stat stat_t;
+
+/* file structure */
 typedef struct ls_file_s {
     char   filename[256];
     char   group[256];
@@ -22,29 +25,39 @@ typedef struct ls_file_s {
     time_t mtime;
 } ls_file_t;
 
+/* ls structure */
 typedef struct ls_s {
     ls_file_t files[256];
     char    dirname[256];
-    struct dirent *dp;
+    struct  dirent *dp;
     size_t  size;
     DIR     *dir;
     uint8_t flags;
 } ls_t;
 
-typedef struct stat stat_t;
-
+/* ls flags -l -a -r -t -S */
 #define LS_FLAG_LONG_LIST 0x01
 #define LS_FLAG_ALL       0x02
 #define LS_FLAG_REVERSE   0x04
 #define LS_FLAG_TIME      0x08
+#define LS_FLAG_SIZE      0x10
 
+/* initialize ls struct */
 void ls_init(ls_t *ls);
-void ls_opendir(ls_t *ls, const char *path);
-void ls_readdir(ls_t *ls);
-void ls_printdir_long_list_fmt(ls_t *ls);
-void ls_printdir(ls_t *ls);
-void ls_closedir(ls_t *ls);
-void ls_help(void);
 
+/* open directory */
+void ls_opendir(ls_t *ls, const char *path);
+
+/* read directory */
+void ls_readdir(ls_t *ls);
+
+/* print directory contents */
+void ls_printdir(ls_t *ls);
+
+/* close directory & free ls struct */
+void ls_destroy(ls_t *ls);
+
+/* show list of options */
+void ls_help(void);
 
 #endif /* _UNIX_PROJECT_LS_H_ */
