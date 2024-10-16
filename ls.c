@@ -1,13 +1,27 @@
-/*
-UNIX projects
-@alkuzin - 2024
-*/
+/**
+ * Command to list computer files and directories.
+ * Copyright (C) 2024  Alexander (@alkuzin).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
@@ -46,7 +60,7 @@ static size_t ls_utoa_len(uint32_t n);
 /* get the largest file length for output alignment */
 static int ls_get_max_size_len(ls_t *ls);
 
-/* get the length for file with max number 
+/* get the length for file with max number
    of links for output alignment */
 static int ls_get_max_nlink_len(ls_t *ls);
 
@@ -74,7 +88,7 @@ static int cmplsfiles(const void *p1, const void *p2)
 
     for (int i = 0; filename2[i]; i++)
         filename2[i] = tolower(filename2[i]);
-    
+
     return strncmp(filename1, filename2, 256);
 }
 
@@ -95,7 +109,7 @@ static int cmplsfiles_r(const void *p1, const void *p2)
 
     for (int i = 0; filename2[i]; i++)
         filename2[i] = tolower(filename2[i]);
-    
+
     return strncmp(filename2, filename1, 256);
 }
 
@@ -201,7 +215,7 @@ static int ls_get_max_size_len(ls_t *ls)
 
     for (size_t i = 0; i < ls->size; i++) {
         size = ls_utoa_len(ls->files[i].size);
-    
+
         if ((size_t) max_size_len < size)
             max_size_len = size;
     }
@@ -218,7 +232,7 @@ static int ls_get_max_nlink_len(ls_t *ls)
 
     for (size_t i = 0; i < ls->size; i++) {
         size = ls_utoa_len(ls->files[i].nlink);
-    
+
         if ((size_t) max_nlink_len < size)
             max_nlink_len = size;
     }
@@ -261,7 +275,7 @@ void ls_readdir(ls_t *ls)
 
     for (;;) {
         ls->dp = readdir(ls->dir);
-        
+
         if (!ls->dp) {
             if (errno) {
                 perror("ls: readdir");
@@ -295,7 +309,7 @@ void ls_readdir(ls_t *ls)
         size  = sb.st_size;
         mtime = sb.st_mtime;
         mdate = localtime(&mtime);
-        
+
         strncpy(file->filename, ls->dp->d_name, strlen(ls->dp->d_name));
         strncpy(file->group, group, strlen(group));
         strncpy(file->user, user, strlen(user));

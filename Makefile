@@ -1,15 +1,13 @@
-CC = gcc
-
+CC     = gcc
 CFLAGS = -Wall -Wextra -Werror -g
 
 NAME = ls
+SRC  = ls
+SRCS = $(addsuffix .c, $(SRC))
+OBJS = $(addsuffix .o, $(SRC))
 
-SRC      = ls
-SRCS     = $(addsuffix .c, $(SRC))
-OBJS     = $(addsuffix .o, $(SRC))
-
-OBJS_DIR = objs/
-OBJS_PREFIXED     = $(addprefix $(OBJS_DIR), $(OBJS))
+OBJS_DIR      = objs/
+OBJS_PREFIXED = $(addprefix $(OBJS_DIR), $(OBJS))
 
 $(OBJS_PREFIXED): $(SRCS)
 	mkdir -p $(OBJS_DIR)
@@ -19,7 +17,7 @@ $(OBJS_PREFIXED): $(SRCS)
 $(NAME): $(OBJS_PREFIXED)
 	$(CC) $(CFLAGS) $(OBJS_PREFIXED) main.c -o $(NAME)
 
-all: $(NAME) 
+all: $(NAME)
 
 clean:
 	rm -rf $(OBJS_DIR)

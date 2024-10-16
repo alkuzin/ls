@@ -2,5 +2,5 @@
 *.a
 *.swp
 ./ls
-vscode/
+.vscode/
 obj/

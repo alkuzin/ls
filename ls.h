@@ -1,10 +1,23 @@
-/*
-UNIX projects
-@alkuzin - 2024
-*/
+/**
+ * Command to list computer files and directories.
+ * Copyright (C) 2024  Alexander (@alkuzin).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 
-#ifndef _UNIX_PROJECT_LS_H_
-#define _UNIX_PROJECT_LS_H_
+#ifndef _LS_H_
+#define _LS_H_
 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -60,4 +73,4 @@ void ls_destroy(ls_t *ls);
 /* show list of options */
 void ls_help(void);
 
-#endif /* _UNIX_PROJECT_LS_H_ */
+#endif /* _LS_H_ */
